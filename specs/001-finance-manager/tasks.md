@@ -542,7 +542,7 @@ Custom `checklists/product.md` остается reviewer-owned, 31/40; авто�
 ### Проверки контракта и инвариантов
 
 - [X] T133 [P] [US14] Написать Vitest unit/contract cases (N units,31Jan→28Feb→31Mar,29Feb restore, upcoming/overdue, idempotent pay, relink reserve, согласованное replanning) в `tests/unit/recurring-payments.test.ts`; использовать contracts/commands.md, ФТ-042–046; КУ-009,011 и точные Decimal строки. Включить январь→первый просмотр в апреле, исключение paid/superseded/pause и повторный query без двойной occurrence.
-- [ ] T134 [P] [US14] Написать PostgreSQL integration и Playwright сценарии истории 14 в `tests/integration/recurring-payments.test.ts`, `tests/e2e/recurring-payments.spec.ts`; включить failure/permission cases и все сценарии приемки US14.
+- [X] T134 [P] [US14] Написать PostgreSQL integration и Playwright сценарии истории 14 в `tests/integration/recurring-payments.test.ts`, `tests/e2e/recurring-payments.spec.ts`; включить failure/permission cases и все сценарии приемки US14.
 
 ### Модель, application service и интерфейс
 
