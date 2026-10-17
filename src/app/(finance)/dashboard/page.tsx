@@ -1,14 +1,41 @@
 import Link from 'next/link';
+import { readDashboard } from '@/modules/reporting/application/dashboard';
+import { UpcomingPayments } from '@/modules/reporting/presentation/upcoming-payments';
+import { paymentDate } from '@/modules/obligations/application/recurring-payments-input';
+import { todayInTimezone, occurrenceDate } from '@/shared/calendar/calendar';
+import { readFamily } from '@/modules/workspaces/application/family';
 import { readFamilies } from '@/modules/workspaces/application/family';
 import {
   personalDashboard,
   readProfile,
 } from '@/modules/identity/application/registration';
 import { authenticatedRead } from '@/modules/identity/presentation/session';
-export default async function Page() {
+export const dynamic = 'force-dynamic';
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ workspace?: string; from?: string; until?: string }>;
+}) {
   const scope = await authenticatedRead(personalDashboard);
   const spaces = await authenticatedRead(readFamilies);
   const profile = await authenticatedRead(readProfile);
+  const query = await searchParams;
+  const selected =
+    spaces.active.find((s) => s.id === query.workspace) ??
+    spaces.active.find((s) => s.id === scope.id)!;
+  const timezone =
+    selected.kind === 'family'
+      ? (await authenticatedRead((h) => readFamily(h, selected.id))).timezone
+      : profile.timezone;
+  const today = todayInTimezone(timezone);
+  const from = paymentDate.safeParse(query.from).success ? query.from! : today;
+  const until =
+    paymentDate.safeParse(query.until).success && query.until! >= from
+      ? query.until!
+      : occurrenceDate(from, 1, 'month');
+  const payments = await authenticatedRead((h) =>
+    readDashboard(h, selected.id, from, until),
+  );
   const date = new Intl.DateTimeFormat(profile.locale, {
     dateStyle: 'long',
     timeZone: profile.timezone,

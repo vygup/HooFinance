@@ -238,17 +238,15 @@ test('Права, stale версии, чужие счета/категории �
     ).obligations[0]?.version,
   ).toBe('1');
   await expect(
-    db
-      .insert(obligationOccurrence)
-      .values({
-        workspaceId: other.envelope.workspaceId,
-        obligationId: r.data.id,
-        scheduledDate: '2027-01-31',
-        scheduledAmount: '1',
-        currency: 'RUB',
-        sourceVersion: 1,
-        status: 'planned',
-      }),
+    db.insert(obligationOccurrence).values({
+      workspaceId: other.envelope.workspaceId,
+      obligationId: r.data.id,
+      scheduledDate: '2027-01-31',
+      scheduledAmount: '1',
+      currency: 'RUB',
+      sourceVersion: 1,
+      status: 'planned',
+    }),
   ).rejects.toThrow();
 });
 test('Перепланирование фиксирует due/paid, отменяет future; удаление расхода возвращает план', async () => {
@@ -332,4 +330,52 @@ test('Перепланирование фиксирует due/paid, отменя
   } finally {
     vi.useRealTimers();
   }
+});
+test('Dashboard использует тот же план/факт и просрочку без автоматического расхода', async () => {
+  const f = await fixture();
+  const r = await obligationCommand(f.headers, f.envelope, f.input);
+  expect(r.status).toBe('success');
+  const { readDashboard } =
+    await import('@/modules/reporting/application/dashboard');
+  const before = await readAccounts(f.headers, f.envelope.workspaceId);
+  const first = await readDashboard(
+    f.headers,
+    f.envelope.workspaceId,
+    '2027-04-01',
+    '2027-04-30',
+    new Date('2027-04-15T12:00:00Z'),
+  );
+  expect(first.plan).toEqual([{ currency: 'RUB', amount: '50000.00' }]);
+  expect(first.overdue).toEqual([{ currency: 'RUB', amount: '150000.00' }]);
+  expect(first.fact).toEqual([]);
+  expect(first.unpaid).toEqual([{ currency: 'RUB', amount: '200000.00' }]);
+  expect(await readAccounts(f.headers, f.envelope.workspaceId)).toEqual(before);
+  const pay = await confirmPayment(
+    f.headers,
+    { ...f.envelope, operationKey: randomUUID() },
+    {
+      occurrenceId: first.payments.at(-1)!.id,
+      accountId: f.account.id,
+      actualAmount: '49000',
+      actualDate: '2027-04-15',
+    },
+  );
+  expect(pay.status).toBe('success');
+  const next = await readDashboard(
+    f.headers,
+    f.envelope.workspaceId,
+    '2027-04-01',
+    '2027-04-30',
+    new Date('2027-04-15T12:00:00Z'),
+  );
+  expect(next.fact).toEqual([{ currency: 'RUB', amount: '49000.00' }]);
+  expect(next.plan).toEqual(first.plan);
+  await expect(
+    readDashboard(
+      (await fixture()).headers,
+      f.envelope.workspaceId,
+      '2027-04-01',
+      '2027-04-30',
+    ),
+  ).rejects.toThrow();
 });
