@@ -1,0 +1,14 @@
+{$CADDY_HOST} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	# Access log отключён: auth URL могут содержать одноразовые токены.
+	reverse_proxy app:3000 {
+		header_up X-Finance-Client-IP {remote_host}
+		header_up X-Finance-Proxy-Secret {$TRUSTED_PROXY_SECRET}
+	}
+}

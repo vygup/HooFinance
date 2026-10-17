@@ -1,0 +1,5 @@
+# Только для локальной разработки; production compose не публикует PostgreSQL.
+services:
+  db:
+    networks: [database, web]
+    ports: ['127.0.0.1:5432:5432']

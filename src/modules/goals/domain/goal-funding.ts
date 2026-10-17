@@ -1,0 +1,10 @@
+import { z } from 'zod';
+import { transferInput } from '@/modules/ledger/domain/transfers';
+import type { TransferDto } from '@/modules/ledger/domain/transfers';
+import type { GoalDto } from './reserve';
+import type { SavingsAccountDto } from './savings-account';
+export const goalFundingInput = transferInput.safeExtend({ goalId: z.uuid() });
+export const goalFundingSelection = z.strictObject({ goalId: z.uuid() });
+export type GoalFundingInput = z.infer<typeof goalFundingInput>;
+export type GoalFundingView = { goal: GoalDto; account: SavingsAccountDto };
+export type GoalFundingResult = GoalFundingView & { transfer: TransferDto };
