@@ -71,9 +71,48 @@ export default async function Page({
             ))}
         </ul>
       </section>
-      <p className="text-muted-foreground">
-        Операции и финансовые планы появятся на следующих этапах.
-      </p>
+      <form
+        data-navigation-form
+        aria-label="Платежи пространства"
+        className="flex flex-wrap gap-3"
+      >
+        <label>
+          Пространство
+          <select
+            name="workspace"
+            defaultValue={selected.id}
+            className="rounded border p-2"
+          >
+            {spaces.active.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          С даты
+          <input
+            name="from"
+            type="date"
+            defaultValue={from}
+            className="rounded border p-2"
+          />
+        </label>
+        <label>
+          По дату
+          <input
+            name="until"
+            type="date"
+            defaultValue={until}
+            className="rounded border p-2"
+          />
+        </label>
+        <button type="submit" className="rounded border p-2">
+          Показать платежи
+        </button>
+      </form>
+      <UpcomingPayments data={payments} locale={profile.locale} />
     </>
   );
 }
