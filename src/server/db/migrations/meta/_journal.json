@@ -64,6 +64,13 @@
       "when": 1792250000000,
       "tag": "us13_savings-plan",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792251000000,
+      "tag": "us14_recurring-payments",
+      "breakpoints": true
     }
   ]
 }

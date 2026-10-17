@@ -12,6 +12,7 @@ import {
   foreignKey,
   check,
 } from 'drizzle-orm/pg-core';
+import { obligation } from './recurring-payments';
 import { workspace } from './workspaces';
 import { financialAccount } from './accounts';
 export const goal = pgTable(
@@ -76,6 +77,9 @@ export const reserveSettings = pgTable(
       'reserve_months_valid',
       sql`${t.coverageMonths}>0 AND ${t.coverageMonths}=trunc(${t.coverageMonths}) AND ${t.coverageMonths} NOT IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)`,
     ),
-    check('reserve_link_unavailable', sql`${t.linkedObligationId} IS NULL`),
+    foreignKey({
+      columns: [t.workspaceId, t.linkedObligationId],
+      foreignColumns: [obligation.workspaceId, obligation.id],
+    }),
   ],
 );
