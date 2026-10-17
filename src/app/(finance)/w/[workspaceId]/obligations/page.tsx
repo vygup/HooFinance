@@ -190,12 +190,15 @@ export default async function Page({
               {formatFinancialDate(p.actualDate!, profile.locale)}
             </p>
           )}
-          <PaymentForm
-            workspaceId={workspaceId}
-            payment={p}
-            today={today}
-            accounts={data.accounts}
-          />
+          <details open={p.id === data.payments[0]?.id}>
+            <summary>Подтвердить или посмотреть оплату</summary>
+            <PaymentForm
+              workspaceId={workspaceId}
+              payment={p}
+              today={today}
+              accounts={data.accounts}
+            />
+          </details>
         </section>
       ))}
       <h2 className="text-2xl font-medium">Связь с резервами</h2>

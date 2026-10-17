@@ -68,3 +68,4 @@ CREATE FUNCTION reopen_deleted_payment() RETURNS trigger LANGUAGE plpgsql AS $$ 
  IF NEW.status='deleted' THEN UPDATE obligation_occurrence SET status='planned',payment_action_id=NULL WHERE payment_action_id=NEW.id; END IF; RETURN NEW;
 END $$;
 CREATE TRIGGER obligation_payment_deleted AFTER UPDATE OF status ON financial_action FOR EACH ROW EXECUTE FUNCTION reopen_deleted_payment();
+ALTER TABLE obligation_schedule_revision ADD CONSTRAINT obligation_revision_scale CHECK (budget_currency_scale(currency) IS NOT NULL AND scale(amount)<=budget_currency_scale(currency));

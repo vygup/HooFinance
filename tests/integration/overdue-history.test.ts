@@ -52,21 +52,19 @@ test('Январская история восстанавливается пр�
       accountId: a!.id,
     })
     .returning();
-  await db
-    .insert(obligationScheduleRevision)
-    .values({
-      workspaceId: w!.id,
-      obligationId: o!.id,
-      revisionNo: 1,
-      anchorDate: '2027-01-31',
-      anchorDay: 31,
-      repeatEvery: 1,
-      repeatUnit: 'month',
-      amount: '50000',
-      currency: 'RUB',
-      activeFrom: '2027-01-31',
-      status: 'active',
-    });
+  await db.insert(obligationScheduleRevision).values({
+    workspaceId: w!.id,
+    obligationId: o!.id,
+    revisionNo: 1,
+    anchorDate: '2027-01-31',
+    anchorDay: 31,
+    repeatEvery: 1,
+    repeatUnit: 'month',
+    amount: '50000',
+    currency: 'RUB',
+    activeFrom: '2027-01-31',
+    status: 'active',
+  });
   for (let i = 0; i < 2; i++)
     await db.transaction(async (tx) => {
       await tx

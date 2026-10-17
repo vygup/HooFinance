@@ -152,3 +152,25 @@ test('Строгий контракт отвергает неверный кал
       recurringPaymentInput.safeParse({ ...input, ...patch }).success,
     ).toBe(false);
 });
+test('История паузы исключает пропущенные периоды и сохраняет наступившие платежи', () => {
+  const history = [
+    { ...revision, activeUntil: null },
+    {
+      ...revision,
+      revisionNo: 2,
+      activeFrom: '2027-03-01',
+      status: 'paused' as const,
+    },
+    {
+      ...revision,
+      revisionNo: 3,
+      activeFrom: '2027-05-01',
+      status: 'active' as const,
+    },
+  ];
+  expect(
+    schedulePayments(history, [], '2027-06-01', '2027-06-30', '2027-06-15').map(
+      (p) => p.scheduledDate,
+    ),
+  ).toEqual(['2027-01-31', '2027-02-28', '2027-05-31', '2027-06-30']);
+});

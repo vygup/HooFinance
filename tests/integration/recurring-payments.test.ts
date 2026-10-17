@@ -379,3 +379,307 @@ test('Dashboard использует тот же план/факт и проср
     ),
   ).rejects.toThrow();
 });
+test('Предупреждение минуса, stale подтверждение и rollback оплаты сохраняют атомарность', async () => {
+  const f = await fixture();
+  const r = await obligationCommand(f.headers, f.envelope, f.input);
+  if (r.status !== 'success') throw Error(r.status);
+  const rows = await readObligations(
+    f.headers,
+    f.envelope.workspaceId,
+    '2027-01-01',
+    '2027-02-28',
+  );
+  const occurrence = rows.payments[0]!;
+  const envelope = { ...f.envelope, operationKey: randomUUID() };
+  const input = {
+    occurrenceId: occurrence.id,
+    accountId: f.account.id,
+    actualAmount: '300000',
+    actualDate: '2027-01-31',
+  };
+  const first = await confirmPayment(f.headers, envelope, input);
+  expect(first.status).toBe('confirmation_required');
+  if (first.status !== 'confirmation_required') throw Error(first.status);
+  expect(
+    (await readAccounts(f.headers, f.envelope.workspaceId)).accounts[0]
+      ?.balance,
+  ).toBe('220000.00');
+  const edit = await accountCommand(
+    f.headers,
+    { ...f.envelope, operationKey: randomUUID(), expectedVersion: '1' },
+    {
+      command: 'update',
+      accountId: f.account.id,
+      name: 'Обновленный',
+      type: 'bank_card',
+      description: '',
+    },
+  );
+  expect(edit.status).toBe('success');
+  const stale = await confirmPayment(
+    f.headers,
+    { ...envelope, confirmationToken: first.confirmationToken },
+    input,
+  );
+  expect(stale.status).toBe('confirmation_required');
+  if (stale.status !== 'confirmation_required') throw Error(stale.status);
+  const trigger = `payment_fail_${randomUUID().replaceAll('-', '')}`;
+  await db.execute(
+    sql.raw(
+      `CREATE FUNCTION ${trigger}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.object_type='obligation' AND NEW.kind='payment' THEN RAISE EXCEPTION 'TEST_FAILURE'; END IF; RETURN NEW; END $$; CREATE TRIGGER ${trigger} BEFORE INSERT ON scoped_audit_event FOR EACH ROW EXECUTE FUNCTION ${trigger}()`,
+    ),
+  );
+  try {
+    expect(
+      (
+        await confirmPayment(
+          f.headers,
+          { ...envelope, confirmationToken: stale.confirmationToken },
+          input,
+        )
+      ).status,
+    ).toBe('unavailable');
+    expect(
+      (await readAccounts(f.headers, f.envelope.workspaceId)).accounts[0]
+        ?.balance,
+    ).toBe('220000.00');
+    expect(
+      (
+        await db
+          .select()
+          .from(obligationOccurrence)
+          .where(eq(obligationOccurrence.id, occurrence.id))
+      )[0]?.status,
+    ).toBe('planned');
+  } finally {
+    await db.execute(
+      sql.raw(
+        `DROP TRIGGER ${trigger} ON scoped_audit_event; DROP FUNCTION ${trigger}()`,
+      ),
+    );
+  }
+  const paid = await confirmPayment(
+    f.headers,
+    { ...envelope, confirmationToken: stale.confirmationToken },
+    input,
+  );
+  expect(paid.status).toBe('success');
+  expect(
+    (await readAccounts(f.headers, f.envelope.workspaceId)).accounts[0]
+      ?.balance,
+  ).toBe('-80000.00');
+  expect(
+    (
+      await confirmPayment(
+        f.headers,
+        { ...envelope, operationKey: randomUUID() },
+        { ...input, actualAmount: '1' },
+      )
+    ).status,
+  ).toBe('conflict');
+});
+test('Семейный участник, конкурентные версии, отзыв доступа и удаленная семья', async () => {
+  const owner = await fixture(),
+    guest = await fixture();
+  const { createFamily, familyCommand } =
+    await import('@/modules/workspaces/application/family');
+  const { mockMail } = await import('./auth-fixture');
+  const { member } = await import('@/server/db/schema/identity');
+  const family = await createFamily(
+    owner.headers,
+    { name: 'Семья', timezone: 'Europe/Moscow', operationKey: randomUUID() },
+    mockMail,
+  );
+  if (family.status !== 'success') throw Error(family.status);
+  const [membership] = await db
+    .insert(member)
+    .values({
+      id: randomUUID(),
+      organizationId: family.data.organizationId,
+      userId: guest.actorId,
+      role: 'member',
+      createdAt: new Date(),
+    })
+    .returning();
+  const envelope = { workspaceId: family.data.id, operationKey: randomUUID() };
+  const a = await accountCommand(owner.headers, envelope, {
+    command: 'create',
+    name: 'Общий',
+    type: 'bank_card',
+    currency: 'RUB',
+    openingBalance: '220000',
+  });
+  const c = await categoryCommand(
+    owner.headers,
+    { ...envelope, operationKey: randomUUID() },
+    { command: 'create', kind: 'expense', name: 'Ипотека' },
+  );
+  if (a.status !== 'success' || c.status !== 'success') throw Error('FIXTURE');
+  const created = await obligationCommand(
+    guest.headers,
+    { ...envelope, operationKey: randomUUID() },
+    { ...owner.input, accountId: a.data.id, categoryId: c.data.id },
+  );
+  if (created.status !== 'success') throw Error(created.status);
+  const key = { ...envelope, operationKey: randomUUID(), expectedVersion: '1' };
+  const results = await Promise.all([
+    obligationCommand(guest.headers, key, {
+      command: 'pause',
+      id: created.data.id,
+    }),
+    obligationCommand(
+      owner.headers,
+      { ...key, operationKey: randomUUID() },
+      { command: 'pause', id: created.data.id },
+    ),
+  ]);
+  expect(results.map((r) => r.status).sort()).toEqual(['conflict', 'success']);
+  const edit = { ...key, operationKey: randomUUID(), expectedVersion: '2' };
+  expect(
+    (
+      await obligationCommand(guest.headers, edit, {
+        command: 'resume',
+        id: created.data.id,
+      })
+    ).status,
+  ).toBe('success');
+  expect(
+    (
+      await familyCommand(
+        owner.headers,
+        { ...envelope, operationKey: randomUUID(), expectedVersion: '1' },
+        { command: 'remove', memberId: membership!.id },
+        mockMail,
+      )
+    ).status,
+  ).toBe('success');
+  expect(
+    (
+      await obligationCommand(guest.headers, edit, {
+        command: 'resume',
+        id: created.data.id,
+      })
+    ).status,
+  ).toBe('forbidden');
+  await expect(
+    readObligations(
+      guest.headers,
+      envelope.workspaceId,
+      '2027-01-01',
+      '2027-03-31',
+    ),
+  ).rejects.toThrow();
+  expect(
+    (
+      await familyCommand(
+        owner.headers,
+        { ...envelope, operationKey: randomUUID(), expectedVersion: '1' },
+        { command: 'delete', explicitConfirmation: true },
+        mockMail,
+      )
+    ).status,
+  ).toBe('success');
+  expect(
+    (
+      await obligationCommand(
+        owner.headers,
+        { ...edit, operationKey: randomUUID(), expectedVersion: '3' },
+        { command: 'archive', id: created.data.id },
+      )
+    ).status,
+  ).toBe('forbidden');
+});
+test('Смена связи, ограничение monthly N=1 и архив сохраняют резерв и прошлую оплату', async () => {
+  const f = await fixture();
+  const first = await obligationCommand(f.headers, f.envelope, f.input);
+  if (first.status !== 'success') throw Error(first.status);
+  const second = await obligationCommand(
+    f.headers,
+    { ...f.envelope, operationKey: randomUUID() },
+    { ...f.input, name: 'Другое обязательство', amount: '60000' },
+  );
+  if (second.status !== 'success') throw Error(second.status);
+  const g = await goalCommand(
+    f.headers,
+    { ...f.envelope, operationKey: randomUUID() },
+    {
+      command: 'create',
+      type: 'reserve',
+      name: 'Резерв',
+      accountId: f.account.id,
+      currency: 'RUB',
+      monthlyAmount: '1',
+      coverageMonths: '12',
+    },
+  );
+  if (g.status !== 'success') throw Error(g.status);
+  const link = (id: string, version: string) =>
+    obligationCommand(
+      f.headers,
+      { ...f.envelope, operationKey: randomUUID(), expectedVersion: version },
+      { command: 'linkReserve', goalId: g.data.id, obligationId: id },
+    );
+  expect((await link(first.data.id, '1')).status).toBe('success');
+  expect((await link(second.data.id, '2')).status).toBe('success');
+  let goals = await readGoals(f.headers, f.envelope.workspaceId);
+  expect(goals.goals[0]?.progress.target).toBe('720000.00');
+  expect(
+    (
+      await obligationCommand(
+        f.headers,
+        { ...f.envelope, operationKey: randomUUID(), expectedVersion: '1' },
+        { ...f.input, command: 'update', id: second.data.id, repeatEvery: 2 },
+      )
+    ).status,
+  ).toBe('conflict');
+  const query = await readObligations(
+    f.headers,
+    f.envelope.workspaceId,
+    '2027-01-01',
+    '2027-02-28',
+  );
+  const payment = query.payments.find(
+    (p) => p.obligationId === second.data.id,
+  )!;
+  const paid = await confirmPayment(
+    f.headers,
+    { ...f.envelope, operationKey: randomUUID() },
+    {
+      occurrenceId: payment.id,
+      accountId: f.account.id,
+      actualAmount: '60000',
+      actualDate: '2027-01-31',
+    },
+  );
+  expect(paid.status).toBe('success');
+  expect(
+    (
+      await obligationCommand(
+        f.headers,
+        { ...f.envelope, operationKey: randomUUID(), expectedVersion: '1' },
+        { command: 'archive', id: second.data.id },
+      )
+    ).status,
+  ).toBe('success');
+  goals = await readGoals(f.headers, f.envelope.workspaceId);
+  expect(goals.goals[0]).toMatchObject({
+    linkedObligationId: second.data.id,
+    linkedObligationStatus: 'archived',
+    progress: { actual: '160000.00', target: '720000.00' },
+  });
+  const after = await readObligations(
+    f.headers,
+    f.envelope.workspaceId,
+    '2027-01-01',
+    '2027-03-31',
+  );
+  expect(after.payments.find((p) => p.id === payment.id)?.status).toBe('paid');
+  expect(
+    after.payments.some(
+      (p) =>
+        p.obligationId === second.data.id &&
+        p.status === 'planned' &&
+        p.scheduledDate > after.today,
+    ),
+  ).toBe(false);
+});

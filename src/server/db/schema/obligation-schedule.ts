@@ -51,6 +51,10 @@ export const obligationScheduleRevision = pgTable(
       sql`${t.amount}>=0 AND ${t.amount} NOT IN ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)`,
     ),
     check(
+      'obligation_revision_scale',
+      sql`budget_currency_scale(${t.currency}) IS NOT NULL AND scale(${t.amount})<=budget_currency_scale(${t.currency})`,
+    ),
+    check(
       'obligation_revision_status',
       sql`${t.status} IN ('active','paused','archived')`,
     ),
