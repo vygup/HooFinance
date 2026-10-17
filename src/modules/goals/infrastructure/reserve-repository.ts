@@ -1,5 +1,6 @@
 import { savingsPlan } from '@/server/db/schema/savings-plan';
 import 'server-only';
+import { obligation } from '@/server/db/schema/recurring-payments';
 import { and, eq, isNull, ne } from 'drizzle-orm';
 import type { Transaction } from '@/server/db/client';
 import { goal, reserveSettings } from '@/server/db/schema/reserve';
@@ -43,8 +44,19 @@ export async function projectGoal(
   if (row.type === 'reserve' && !settings)
     throw Error('INVALID_RESERVE_SETTINGS');
   const type = row.type as 'ordinary' | 'reserve';
+  const [linked] = settings?.linkedObligationId
+    ? await tx
+        .select()
+        .from(obligation)
+        .where(
+          and(
+            eq(obligation.id, settings.linkedObligationId),
+            eq(obligation.workspaceId, workspaceId),
+          ),
+        )
+    : [];
   const monthlyAmount = settings
-    ? validateAmount(settings.monthlyAmount, row.currency)
+    ? validateAmount(linked?.amount ?? settings.monthlyAmount, row.currency)
     : null;
   const coverageMonths = settings?.coverageMonths ?? null;
   const ordinaryTarget =
@@ -139,6 +151,23 @@ export async function persistGoal(
       );
     if (occupied.length) throw new CommandConflict();
   }
+  const [oldSettings] = before
+    ? await tx
+        .select()
+        .from(reserveSettings)
+        .where(
+          and(
+            eq(reserveSettings.workspaceId, workspaceId),
+            eq(reserveSettings.goalId, before.id),
+          ),
+        )
+    : [];
+  if (
+    oldSettings?.linkedObligationId &&
+    input.command === 'update' &&
+    (input.type !== 'reserve' || input.currency !== before!.currency)
+  )
+    throw new CommandConflict();
   let id: string;
   if (input.command === 'archive') {
     id = input.id;
@@ -181,7 +210,10 @@ export async function persistGoal(
       await tx.insert(reserveSettings).values({
         workspaceId,
         goalId: id,
-        monthlyAmount: input.monthlyAmount,
+        monthlyAmount: oldSettings?.linkedObligationId
+          ? before!.monthlyAmount!
+          : input.monthlyAmount,
+        linkedObligationId: oldSettings?.linkedObligationId ?? null,
         coverageMonths: input.coverageMonths,
       });
   }

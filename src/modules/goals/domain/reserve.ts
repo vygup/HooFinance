@@ -147,6 +147,9 @@ export type GoalDto = {
   accountName: string;
   ordinaryTarget: string | null;
   targetDate: string | null;
+  linkedObligationId?: string | null;
+  linkedObligationName?: string | null;
+  linkedObligationStatus?: string | null;
   monthlyAmount: string | null;
   coverageMonths: string | null;
   archived: boolean;

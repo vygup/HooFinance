@@ -98,8 +98,9 @@ export function paymentTotals(
     .map(([currency, amount]) => ({ currency, amount }))
     .sort((a, b) => a.currency.localeCompare(b.currency));
 }
-export function canLinkReserve(
-  schedule: Pick<ScheduleRevision, 'repeatUnit' | 'repeatEvery'>,
-) {
+export function canLinkReserve(schedule: {
+  repeatUnit: string;
+  repeatEvery: ScheduleRevision['repeatEvery'];
+}) {
   return schedule.repeatUnit === 'month' && schedule.repeatEvery === 1;
 }
