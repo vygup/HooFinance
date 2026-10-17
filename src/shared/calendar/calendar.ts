@@ -100,3 +100,41 @@ export function monthlyForecastDate(
     return null;
   }
 }
+
+/** Calendar-only stepping; monetary values never enter this function. */
+export function recurrenceDates(
+  anchor: string,
+  every: number,
+  unit: 'day' | 'week' | 'month' | 'year',
+  from: string,
+  until: string,
+) {
+  dateOnly(from);
+  dateOnly(until);
+  const result: string[] = [];
+  if (until < anchor || until < from) return result;
+  let low = 0,
+    high = 1;
+  const at = (i: number) => {
+    try {
+      return occurrenceDate(anchor, i, unit, every);
+    } catch {
+      return '9999-12-32';
+    }
+  };
+  while (at(high) < from) high *= 2;
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (at(mid) < from) low = mid + 1;
+    else high = mid;
+  }
+  for (let i = low; ; i++) {
+    const date = at(i);
+    if (date > until) break;
+    result.push(date);
+  }
+  return result;
+}
+export function followingDate(date: string) {
+  return occurrenceDate(date, 1, 'day');
+}
