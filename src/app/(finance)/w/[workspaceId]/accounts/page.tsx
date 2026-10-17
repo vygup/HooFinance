@@ -81,6 +81,9 @@ export default async function Page({
   const { categories, expenses } = data;
   return (
     <>
+      <Link className="underline" href={`/w/${workspaceId}/obligations`}>
+        Регулярные обязательства
+      </Link>
       <h1 className="text-3xl font-semibold">Счета · {scope.name}</h1>
       <p>
         {scope.kind === 'personal'

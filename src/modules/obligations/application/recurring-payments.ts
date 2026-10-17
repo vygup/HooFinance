@@ -204,22 +204,20 @@ export async function confirmPayment(
         .update(obligationOccurrence)
         .set({ status: 'paid', paymentActionId: actionId })
         .where(eq(obligationOccurrence.id, occ.id));
-      await tx
-        .insert(scopedAuditEvent)
-        .values({
-          workspaceId: e.data.workspaceId,
-          objectType: 'obligation',
-          objectId: o.id,
-          actorId,
-          revisionNo: Number(o.version),
-          kind: 'payment',
-          beforeScope: { occurrenceId: occ.id, status: 'planned' },
-          afterScope: {
-            occurrenceId: occ.id,
-            status: 'paid',
-            paymentActionId: actionId,
-          },
-        });
+      await tx.insert(scopedAuditEvent).values({
+        workspaceId: e.data.workspaceId,
+        objectType: 'obligation',
+        objectId: o.id,
+        actorId,
+        revisionNo: Number(o.version),
+        kind: 'payment',
+        beforeScope: { occurrenceId: occ.id, status: 'planned' },
+        afterScope: {
+          occurrenceId: occ.id,
+          status: 'paid',
+          paymentActionId: actionId,
+        },
+      });
       return { reference: occ.id };
     },
     project: (tx, id, actorId) =>

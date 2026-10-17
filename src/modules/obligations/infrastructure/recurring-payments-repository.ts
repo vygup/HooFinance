@@ -240,52 +240,46 @@ export async function persistObligation(
         ),
       );
   }
-  await tx
-    .insert(obligationScheduleRevision)
-    .values({
-      workspaceId,
-      obligationId: row.id,
-      revisionNo: Number(row.version),
-      anchorDate: row.anchorDate,
-      anchorDay: row.anchorDay,
-      repeatEvery: row.repeatEvery,
-      repeatUnit: row.repeatUnit,
-      amount: row.amount,
-      currency: row.currency,
-      activeFrom:
-        input.command === 'create' ? row.anchorDate : followingDate(today),
-      status: row.status,
-    });
+  await tx.insert(obligationScheduleRevision).values({
+    workspaceId,
+    obligationId: row.id,
+    revisionNo: Number(row.version),
+    anchorDate: row.anchorDate,
+    anchorDay: row.anchorDay,
+    repeatEvery: row.repeatEvery,
+    repeatUnit: row.repeatUnit,
+    amount: row.amount,
+    currency: row.currency,
+    activeFrom:
+      input.command === 'create' ? row.anchorDate : followingDate(today),
+    status: row.status,
+  });
   for (const old of reserveBefore) {
     await tx
       .update(goal)
       .set({ version: BigInt(old.version) + 1n })
       .where(and(eq(goal.id, old.id), eq(goal.workspaceId, workspaceId)));
-    await tx
-      .insert(scopedAuditEvent)
-      .values({
-        workspaceId,
-        objectType: 'goal',
-        objectId: old.id,
-        actorId,
-        revisionNo: Number(BigInt(old.version) + 1n),
-        kind: 'obligation_changed',
-        beforeScope: old,
-        afterScope: await projectGoal(tx, old.id, workspaceId, actorId),
-      });
-  }
-  await tx
-    .insert(scopedAuditEvent)
-    .values({
+    await tx.insert(scopedAuditEvent).values({
       workspaceId,
-      objectType: 'obligation',
-      objectId: row.id,
+      objectType: 'goal',
+      objectId: old.id,
       actorId,
-      revisionNo: Number(row.version),
-      kind: input.command,
-      beforeScope: before,
-      afterScope: obligationDto(row),
+      revisionNo: Number(BigInt(old.version) + 1n),
+      kind: 'obligation_changed',
+      beforeScope: old,
+      afterScope: await projectGoal(tx, old.id, workspaceId, actorId),
     });
+  }
+  await tx.insert(scopedAuditEvent).values({
+    workspaceId,
+    objectType: 'obligation',
+    objectId: row.id,
+    actorId,
+    revisionNo: Number(row.version),
+    kind: input.command,
+    beforeScope: before,
+    afterScope: obligationDto(row),
+  });
   return row.id;
 }
 export async function linkReserve(
@@ -333,18 +327,16 @@ export async function linkReserve(
     .update(goal)
     .set({ version: g.version + 1n })
     .where(and(eq(goal.id, g.id), eq(goal.workspaceId, workspaceId)));
-  await tx
-    .insert(scopedAuditEvent)
-    .values({
-      workspaceId,
-      objectType: 'goal',
-      objectId: g.id,
-      actorId,
-      revisionNo: Number(g.version + 1n),
-      kind: 'link_obligation',
-      beforeScope: before,
-      afterScope: await projectGoal(tx, g.id, workspaceId, actorId),
-    });
+  await tx.insert(scopedAuditEvent).values({
+    workspaceId,
+    objectType: 'goal',
+    objectId: g.id,
+    actorId,
+    revisionNo: Number(g.version + 1n),
+    kind: 'link_obligation',
+    beforeScope: before,
+    afterScope: await projectGoal(tx, g.id, workspaceId, actorId),
+  });
   return g.id;
 }
 export async function paymentRows(tx: Transaction, workspaceId: string) {

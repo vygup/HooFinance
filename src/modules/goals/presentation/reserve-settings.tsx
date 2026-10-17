@@ -101,6 +101,7 @@ export function ReserveSettings({
           <input
             className="block w-full rounded border bg-background p-2"
             inputMode="decimal"
+            readOnly={!!goal.linkedObligationId}
             {...form.register('monthlyAmount')}
           />
         </label>

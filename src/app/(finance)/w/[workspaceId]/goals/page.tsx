@@ -86,6 +86,23 @@ export default async function Page({
             </h2>
             {g.description && <p>{g.description}</p>}
             <p>Связанный счёт: {g.accountName}</p>
+            {g.linkedObligationId && (
+              <p>
+                Сумма из обязательства: {g.linkedObligationName} ·{' '}
+                {g.linkedObligationStatus === 'active'
+                  ? 'Активно'
+                  : g.linkedObligationStatus === 'paused'
+                    ? 'Приостановлено'
+                    : 'Архивировано'}
+                .{' '}
+                <Link
+                  className="underline"
+                  href={`/w/${workspaceId}/obligations`}
+                >
+                  Управление связью
+                </Link>
+              </p>
+            )}
             {g.targetDate && (
               <p>
                 Желаемая дата:{' '}
