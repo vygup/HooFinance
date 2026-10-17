@@ -38,6 +38,7 @@ export type TransferDto = {
   }[];
 };
 export type TransferAccountOption = {
+  archived?: boolean;
   id: string;
   workspaceId: string;
   workspaceName: string;

@@ -113,6 +113,7 @@ export async function financialTransaction<P, R, T>(input: {
   workspaceIds: readonly string[];
   accountIds: readonly string[];
   actionId?: string;
+  discoverActionLocks?: boolean;
   allowArchivedAccounts?: boolean;
   execute: (context: Context<P>) => Promise<WriteResult<R>>;
   project: (tx: Transaction, reference: R, actorId: string) => Promise<T>;
@@ -130,11 +131,11 @@ export async function financialTransaction<P, R, T>(input: {
   const envelope = parsed.data;
   const normalized = input.payloadSchema.safeParse(input.payload);
   if (!normalized.success) return validationErrors(normalized.error);
-  const ids = [
+  const requestedIds = [
     ...new Set([envelope.workspaceId, ...input.workspaceIds]),
   ].sort();
   const hash = requestHash({
-    workspaceIds: ids,
+    workspaceIds: requestedIds,
     accountIds: [...new Set(input.accountIds)].sort(),
     actionId: input.actionId,
     payload: normalized.data,
@@ -142,6 +143,38 @@ export async function financialTransaction<P, R, T>(input: {
   });
   try {
     return await retryTransaction(async (tx) => {
+      // Discover server-owned action participants before acquiring the canonical
+      // workspace→membership→action→account locks. Inferred locks are not part
+      // of request identity, so a retry after moving an entry stays idempotent.
+      let ids = requestedIds;
+      let accountIds = [...new Set(input.accountIds)].sort();
+      if (input.discoverActionLocks && input.actionId) {
+        await requireWorkspace(actorId, envelope.workspaceId, 'write', tx);
+        const participants = await tx
+          .select({ leg: ledgerLeg })
+          .from(ledgerLeg)
+          .innerJoin(
+            financialAction,
+            and(
+              eq(financialAction.id, ledgerLeg.actionId),
+              eq(financialAction.currentRevision, ledgerLeg.revisionNo),
+            ),
+          )
+          .where(eq(ledgerLeg.actionId, input.actionId));
+        if (
+          !participants.some((p) => p.leg.workspaceId === envelope.workspaceId)
+        )
+          throw new AccessError();
+        ids = [
+          ...new Set([...ids, ...participants.map((p) => p.leg.workspaceId)]),
+        ].sort();
+        accountIds = [
+          ...new Set([
+            ...accountIds,
+            ...participants.map((p) => p.leg.accountId),
+          ]),
+        ].sort();
+      }
       const scopes = await tx
         .select()
         .from(workspace)
@@ -196,6 +229,11 @@ export async function financialTransaction<P, R, T>(input: {
           .where(eq(financialAction.id, input.actionId))
           .for('update');
         if (!action) throw new AccessError();
+        if (
+          input.discoverActionLocks &&
+          action.version.toString() !== envelope.expectedVersion
+        )
+          throw new CommandConflict();
         const legs = await tx
           .select()
           .from(ledgerLeg)
@@ -210,7 +248,7 @@ export async function financialTransaction<P, R, T>(input: {
           legs.some(
             (leg) =>
               !ids.includes(leg.workspaceId) ||
-              !input.accountIds.includes(leg.accountId),
+              !accountIds.includes(leg.accountId),
           )
         )
           throw new AccessError();
@@ -221,21 +259,16 @@ export async function financialTransaction<P, R, T>(input: {
         )
           throw new CommandConflict();
       }
-      const accounts = input.accountIds.length
+      const accounts = accountIds.length
         ? await tx
             .select()
             .from(financialAccount)
-            .where(
-              inArray(
-                financialAccount.id,
-                [...new Set(input.accountIds)].sort(),
-              ),
-            )
+            .where(inArray(financialAccount.id, accountIds))
             .orderBy(financialAccount.id)
             .for('update')
         : [];
       if (
-        accounts.length !== new Set(input.accountIds).size ||
+        accounts.length !== accountIds.length ||
         accounts.some(
           (account) =>
             !ids.includes(account.workspaceId) ||

@@ -173,6 +173,7 @@ export async function readTransfers(headers: Headers, workspaceId: string) {
 export async function readTransferOptions(
   headers: Headers,
   workspaceId: string,
+  includeArchived = false,
 ): Promise<TransferAccountOption[]> {
   const scopes = await readFamilies(headers);
   const active = scopes.active.find((s) => s.id === workspaceId);
@@ -187,19 +188,23 @@ export async function readTransferOptions(
           id: financialAccount.id,
           name: financialAccount.name,
           currency: financialAccount.currency,
+          archivedAt: financialAccount.archivedAt,
         })
         .from(financialAccount)
         .where(
           and(
             eq(financialAccount.workspaceId, scope.id),
-            isNull(financialAccount.archivedAt),
+            includeArchived ? undefined : isNull(financialAccount.archivedAt),
           ),
         )
         .orderBy(financialAccount.name, financialAccount.id),
     );
     result.push(
       ...rows.map((a) => ({
-        ...a,
+        id: a.id,
+        name: a.name,
+        currency: a.currency,
+        archived: !!a.archivedAt,
         workspaceId: scope.id,
         workspaceName: scope.name,
         kind: scope.kind,

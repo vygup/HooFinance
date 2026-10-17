@@ -108,6 +108,9 @@ export default async function Page({
       <Link className="underline" href={`/w/${workspaceId}/goals`}>
         Цели и резервы
       </Link>
+      <Link className="underline" href={`/w/${workspaceId}/operations`}>
+        История операций
+      </Link>
       <section aria-label="Общие остатки" className="rounded-lg border p-5">
         {data.totals.map((t) => (
           <p className="break-all" key={t.currency}>
