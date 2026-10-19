@@ -33,7 +33,11 @@ export function AnalyticsCharts({ report }: { report: AnalyticsReport }) {
                   }))}
               >
                 <XAxis dataKey="label" hide />
-                <YAxis domain={[0, 1]} />
+                <YAxis
+                  domain={[0, 1]}
+                  tick={{ fill: 'var(--foreground)' }}
+                  stroke="var(--foreground)"
+                />
                 <Tooltip
                   content={({ active, payload }) =>
                     active && payload?.[0] ? (
@@ -44,7 +48,11 @@ export function AnalyticsCharts({ report }: { report: AnalyticsReport }) {
                     ) : null
                   }
                 />
-                <Bar dataKey="coordinate" fill="var(--foreground)" />
+                <Bar
+                  isAnimationActive={false}
+                  dataKey="coordinate"
+                  fill="var(--foreground)"
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -57,8 +65,16 @@ export function AnalyticsCharts({ report }: { report: AnalyticsReport }) {
               <BarChart
                 data={report.dynamics.filter((d) => d.currency === t.currency)}
               >
-                <XAxis dataKey="date" />
-                <YAxis domain={[0, 1]} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: 'var(--foreground)' }}
+                  stroke="var(--foreground)"
+                />
+                <YAxis
+                  domain={[0, 1]}
+                  tick={{ fill: 'var(--foreground)' }}
+                  stroke="var(--foreground)"
+                />
                 <Tooltip
                   content={({ active, payload }) =>
                     active && payload?.[0] ? (
@@ -72,8 +88,16 @@ export function AnalyticsCharts({ report }: { report: AnalyticsReport }) {
                     ) : null
                   }
                 />
-                <Bar dataKey="incomeCoordinate" fill="#15803d" />
-                <Bar dataKey="expenseCoordinate" fill="#b91c1c" />
+                <Bar
+                  isAnimationActive={false}
+                  dataKey="incomeCoordinate"
+                  fill="#15803d"
+                />
+                <Bar
+                  isAnimationActive={false}
+                  dataKey="expenseCoordinate"
+                  fill="#b91c1c"
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>

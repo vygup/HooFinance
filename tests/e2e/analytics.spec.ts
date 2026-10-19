@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { test, expect } from './fixtures';
 test('Аналитика: пустое состояние, произвольный период, точный доход и валидация', async ({
   page,
-}) => {
+}, info) => {
   await page.goto('/register');
   await page.getByLabel('Отображаемое имя').fill('Аналитика');
   await page
@@ -38,13 +38,29 @@ test('Аналитика: пустое состояние, произвольн�
   await expect(form.getByRole('status')).toHaveText('Доход сохранён.');
   await page.goto(`/w/${workspaceId}/analytics`);
   const period = page.getByRole('form', { name: 'Период аналитики' });
-  await period.getByRole('combobox', { name: 'Период', exact: true }).selectOption('custom');
+  await period
+    .getByRole('combobox', { name: 'Период', exact: true })
+    .selectOption('custom');
   await period.getByLabel('С даты').fill('2026-10-01');
   await period.getByLabel('По дату').fill('2026-10-01');
   await period.getByRole('button', { name: 'Показать отчёт' }).click();
+  await expect(period.getByRole('status')).toHaveText('Отчёт обновлён.');
   await expect(
     page.getByText('Доходы: 25 000,00 RUB', { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole('img', { name: 'Динамика RUB', exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: info.outputPath('analytics.png'),
+    fullPage: true,
+  });
+  await page.route(page.url(), (route) => route.abort('failed'), { times: 1 });
+  await period.getByRole('button', { name: 'Показать отчёт' }).click();
+  await expect(period.getByRole('alert')).toContainText('Не удалось загрузить');
+  await expect(period.getByLabel('С даты')).toHaveValue('2026-10-01');
+  await period.getByRole('button', { name: 'Показать отчёт' }).click();
+  await expect(period.getByRole('status')).toHaveText('Отчёт обновлён.');
   await period.getByLabel('По дату').fill('2026-09-30');
   await period.getByRole('button', { name: 'Показать отчёт' }).click();
   await expect(period.getByRole('alert')).toBeFocused();

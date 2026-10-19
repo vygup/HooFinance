@@ -137,38 +137,212 @@ test('актуальные ревизии, включительные грани
 });
 
 test('единый семейный календарь, отдельные валюты, бюджет, цель и отзыв членства', async () => {
- const {createFamily}=await import('@/modules/workspaces/application/family');
- const {member,userProfile}=await import('@/server/db/schema/identity');
- const {saveMonthlyBudget}=await import('@/modules/budgeting/application/monthly-budget');
- const {goalCommand}=await import('@/modules/goals/application/reserve');
- const owner=await registeredActor(),guest=await registeredActor();
- const family=await createFamily(owner.headers,{name:'Аналитика семьи',timezone:'Europe/Moscow',operationKey:randomUUID()});
- expect(family.status).toBe('success');
- const [scope]=await db.select().from(workspace).where(eq(workspace.familyOwnerId,owner.actorId));
- const workspaceId=scope!.id,env=()=>({workspaceId,operationKey:randomUUID()});
- const memberId=randomUUID();
- await db.insert(member).values({id:memberId,organizationId:scope!.organizationId!,userId:guest.actorId,role:'member',createdAt:new Date()});
- await db.update(userProfile).set({timezone:'America/Los_Angeles'}).where(eq(userProfile.userId,guest.actorId));
- const a=await accountCommand(owner.headers,env(),{command:'create',name:'Накопления',type:'accumulation',currency:'RUB',openingBalance:'50000'});
- const usd=await accountCommand(owner.headers,env(),{command:'create',name:'USD',type:'cash',currency:'USD',openingBalance:'0'});
- if(a.status!=='success'||usd.status!=='success')throw Error('FIXTURE');
- const expense=await createExpense(owner.headers,env(),{accountId:a.data.id,category:{name:'Питание'},amount:'10000',financialDate:'2026-11-01'});
- if(expense.status!=='success')throw Error('FIXTURE');
- expect((await createIncome(owner.headers,env(),{accountId:usd.data.id,category:{name:'Доход USD'},amount:'1.01',financialDate:'2026-11-01'})).status).toBe('success');
- expect((await saveMonthlyBudget(owner.headers,env(),{month:'2026-11',currency:'RUB',plannedIncome:'30000',categoryLimits:[{categoryId:expense.data.categoryId,amount:'15000'}]})).status).toBe('success');
- expect((await goalCommand(owner.headers,env(),{command:'create',type:'ordinary',name:'Цель',accountId:a.data.id,currency:'RUB',ordinaryTarget:'100000'})).status).toBe('success');
- const instant=new Date('2026-10-31T22:30:00Z');
- const one=await readAnalytics(owner.headers,workspaceId,{period:'current'},instant);
- const two=await readAnalytics(guest.headers,workspaceId,{period:'current'},instant);
- expect(two).toEqual(one);
- expect(one.from).toBe('2026-11-01');
- expect(one.until).toBe('2026-11-30');
- expect(one.totals).toEqual([{currency:'RUB',income:'0.00',expense:'10000.00',difference:'-10000.00'},{currency:'USD',income:'1.01',expense:'0.00',difference:'1.01'}]);
- expect(one.budgets[0]).toMatchObject({actual:'10000.00',remaining:'5000.00'});
- expect(one.goals[0]?.progress.actual).toBe('40000.00');
- expect(one.accounts.find(a=>a.currency==='RUB')?.balance).toBe('40000.00');
- expect((await readAnalytics(owner.headers,workspaceId,{period:'previous'},instant)).totals).toEqual([]);
- expect((await readAnalytics(owner.headers,workspaceId,{period:'year'},instant)).totals).toEqual(one.totals);
- await db.delete(member).where(eq(member.id,memberId));
- await expect(readAnalytics(guest.headers,workspaceId,{period:'current'},instant)).rejects.toThrow('FORBIDDEN');
+  const { createFamily, familyCommand } =
+    await import('@/modules/workspaces/application/family');
+  const { member, userProfile } = await import('@/server/db/schema/identity');
+  const { saveMonthlyBudget } =
+    await import('@/modules/budgeting/application/monthly-budget');
+  const { goalCommand } = await import('@/modules/goals/application/reserve');
+  const owner = await registeredActor(),
+    guest = await registeredActor();
+  const family = await createFamily(owner.headers, {
+    name: 'Аналитика семьи',
+    timezone: 'Europe/Moscow',
+    operationKey: randomUUID(),
+  });
+  expect(family.status).toBe('success');
+  const [scope] = await db
+    .select()
+    .from(workspace)
+    .where(eq(workspace.familyOwnerId, owner.actorId));
+  const workspaceId = scope!.id,
+    env = () => ({ workspaceId, operationKey: randomUUID() });
+  const memberId = randomUUID();
+  await db.insert(member).values({
+    id: memberId,
+    organizationId: scope!.organizationId!,
+    userId: guest.actorId,
+    role: 'member',
+    createdAt: new Date(),
+  });
+  await db
+    .update(userProfile)
+    .set({ timezone: 'America/Los_Angeles' })
+    .where(eq(userProfile.userId, guest.actorId));
+  const a = await accountCommand(owner.headers, env(), {
+    command: 'create',
+    name: 'Накопления',
+    type: 'accumulation',
+    currency: 'RUB',
+    openingBalance: '50000',
+  });
+  const usd = await accountCommand(owner.headers, env(), {
+    command: 'create',
+    name: 'USD',
+    type: 'cash',
+    currency: 'USD',
+    openingBalance: '0',
+  });
+  if (a.status !== 'success' || usd.status !== 'success')
+    throw Error('FIXTURE');
+  const expense = await createExpense(owner.headers, env(), {
+    accountId: a.data.id,
+    category: { name: 'Питание' },
+    amount: '10000',
+    financialDate: '2026-11-01',
+  });
+  if (expense.status !== 'success') throw Error('FIXTURE');
+  expect(
+    (
+      await createIncome(owner.headers, env(), {
+        accountId: usd.data.id,
+        category: { name: 'Доход USD' },
+        amount: '1.01',
+        financialDate: '2026-11-01',
+      })
+    ).status,
+  ).toBe('success');
+  expect(
+    (
+      await saveMonthlyBudget(owner.headers, env(), {
+        month: '2026-11',
+        currency: 'RUB',
+        plannedIncome: '30000',
+        categoryLimits: [
+          { categoryId: expense.data.categoryId, amount: '15000' },
+        ],
+      })
+    ).status,
+  ).toBe('success');
+  expect(
+    (
+      await goalCommand(owner.headers, env(), {
+        command: 'create',
+        type: 'ordinary',
+        name: 'Цель',
+        accountId: a.data.id,
+        currency: 'RUB',
+        ordinaryTarget: '100000',
+      })
+    ).status,
+  ).toBe('success');
+  const instant = new Date('2026-10-31T22:30:00Z');
+  const one = await readAnalytics(
+    owner.headers,
+    workspaceId,
+    { period: 'current' },
+    instant,
+  );
+  const two = await readAnalytics(
+    guest.headers,
+    workspaceId,
+    { period: 'current' },
+    instant,
+  );
+  expect(two).toEqual(one);
+  expect(one.from).toBe('2026-11-01');
+  expect(one.until).toBe('2026-11-30');
+  expect(one.totals).toEqual([
+    {
+      currency: 'RUB',
+      income: '0.00',
+      expense: '10000.00',
+      difference: '-10000.00',
+    },
+    { currency: 'USD', income: '1.01', expense: '0.00', difference: '1.01' },
+  ]);
+  expect(one.budgets[0]).toMatchObject({
+    actual: '10000.00',
+    remaining: '5000.00',
+  });
+  expect(one.goals[0]?.progress.actual).toBe('40000.00');
+  expect(one.accounts.find((a) => a.currency === 'RUB')?.balance).toBe(
+    '40000.00',
+  );
+  expect(
+    (
+      await readAnalytics(
+        owner.headers,
+        workspaceId,
+        { period: 'previous' },
+        instant,
+      )
+    ).totals,
+  ).toEqual([]);
+  expect(
+    (
+      await readAnalytics(
+        owner.headers,
+        workspaceId,
+        { period: 'year' },
+        instant,
+      )
+    ).totals,
+  ).toEqual(one.totals);
+  expect(
+    (
+      await familyCommand(
+        owner.headers,
+        { ...env(), expectedVersion: '1' },
+        { command: 'timezone', timezone: 'America/Los_Angeles' },
+      )
+    ).status,
+  ).toBe('success');
+  const changedZone = await readAnalytics(
+    guest.headers,
+    workspaceId,
+    { period: 'current' },
+    instant,
+  );
+  expect(changedZone.from).toBe('2026-10-01');
+  expect(changedZone.totals).toEqual([]);
+  expect(
+    (
+      await readAnalytics(
+        guest.headers,
+        workspaceId,
+        { period: 'custom', from: '2026-11-01', until: '2026-11-01' },
+        instant,
+      )
+    ).totals,
+  ).toEqual(one.totals);
+  await db.delete(member).where(eq(member.id, memberId));
+  await expect(
+    readAnalytics(guest.headers, workspaceId, { period: 'current' }, instant),
+  ).rejects.toThrow('FORBIDDEN');
+});
+
+test('удалённая семья не предоставляет обычный отчёт даже владельцу', async () => {
+  const { createFamily, familyCommand } =
+    await import('@/modules/workspaces/application/family');
+  const owner = await registeredActor();
+  expect(
+    (
+      await createFamily(owner.headers, {
+        name: 'Удаляемая семья',
+        timezone: 'Europe/Moscow',
+        operationKey: randomUUID(),
+      })
+    ).status,
+  ).toBe('success');
+  const [scope] = await db
+    .select()
+    .from(workspace)
+    .where(eq(workspace.familyOwnerId, owner.actorId));
+  expect(
+    (
+      await familyCommand(
+        owner.headers,
+        {
+          workspaceId: scope!.id,
+          operationKey: randomUUID(),
+          expectedVersion: '1',
+        },
+        { command: 'delete', explicitConfirmation: true },
+      )
+    ).status,
+  ).toBe('success');
+  await expect(
+    readAnalytics(owner.headers, scope!.id, { period: 'year' }),
+  ).rejects.toThrow('FORBIDDEN');
 });

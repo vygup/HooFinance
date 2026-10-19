@@ -47,7 +47,9 @@ export function summarizeAnalytics(rows: readonly AnalyticsRow[]) {
   const groups = new Map<string, AnalyticsRow[]>();
   for (const row of entries) {
     const key = JSON.stringify([row.currency, row.role, row.categoryId]);
-    groups.set(key, [...(groups.get(key) ?? []), row]);
+    const group = groups.get(key);
+    if (group) group.push(row);
+    else groups.set(key, [row]);
   }
   const categories = [...groups.values()]
     .map((group) => ({
