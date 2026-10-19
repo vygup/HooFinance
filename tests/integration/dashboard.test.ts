@@ -253,15 +253,13 @@ test('личное и две семьи изолированы, семейный
     .from(workspace)
     .where(eq(workspace.id, familyId));
   const memberId = randomUUID();
-  await db
-    .insert(member)
-    .values({
-      id: memberId,
-      organizationId: family!.organizationId!,
-      userId: guest.actorId,
-      role: 'member',
-      createdAt: new Date(),
-    });
+  await db.insert(member).values({
+    id: memberId,
+    organizationId: family!.organizationId!,
+    userId: guest.actorId,
+    role: 'member',
+    createdAt: new Date(),
+  });
   await db
     .update(userProfile)
     .set({ timezone: 'America/Los_Angeles' })
