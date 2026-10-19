@@ -84,6 +84,9 @@ export default async function Page({
       <Link className="underline" href={`/w/${workspaceId}/obligations`}>
         Регулярные обязательства
       </Link>
+      <Link className="underline" href={`/w/${workspaceId}/analytics`}>
+        Аналитика по периодам
+      </Link>
       <h1 className="text-3xl font-semibold">Счета · {scope.name}</h1>
       <p>
         {scope.kind === 'personal'

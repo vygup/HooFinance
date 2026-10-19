@@ -66,7 +66,7 @@ export function WorkspaceSwitcher({
           );
           if (href === location.pathname) return;
           const section =
-            /^\/w\/[^/]+\/(accounts|budget|goals|operations)$/.exec(
+            /^\/w\/[^/]+\/(accounts|budget|goals|operations|obligations|analytics)$/.exec(
               href,
             )?.[1] ?? 'accounts';
           const parsed = switchingInput.safeParse({ ...values, section });

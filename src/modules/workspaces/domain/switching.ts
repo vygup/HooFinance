@@ -22,7 +22,7 @@ export function switchingTarget(
 ) {
   if (deleted) return `/families?history=${id}`;
   const section =
-    /^\/w\/[^/]+\/(accounts|budget|goals|operations|obligations)$/.exec(
+    /^\/w\/[^/]+\/(accounts|budget|goals|operations|obligations|analytics)$/.exec(
       pathname.split('?')[0]!,
     )?.[1] ?? 'accounts';
   return `/w/${id}/${section}`;
