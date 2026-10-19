@@ -24,11 +24,11 @@ test('актуальные ревизии, включительные грани
  expect((await readAnalytics(actor.headers,workspaceId,range)).totals).toEqual([]);
  const entries=[];
  for(const [amount,financialDate] of [['10000','2026-10-01'],['15000','2026-10-31']]) {
- const r=await createExpense(actor.headers,env(),{accountId:a.data.id,category:{name:'Питание'},amount,financialDate});
+ const r=await createExpense(actor.headers,env(),{accountId:a.data.id,category:entries.length?{id:entries[0]!.categoryId}:{name:'Питание'},amount,financialDate});
  if(r.status!=='success') throw Error('FIXTURE'); entries.push(r.data);
  }
  await createIncome(actor.headers,env(),{accountId:a.data.id,category:{name:'Зарплата'},amount:'30000',financialDate:'2026-10-10'});
- const transfer=await createTransfer(actor.headers,env(),{sourceAccountId:a.data.id,destinationAccountId:b.data.id,destinationWorkspaceId:workspaceId,sourceAmount:'2000',destinationAmount:'2000',financialDate:'2026-10-12'});
+ const transfer=await createTransfer(actor.headers,env(),{sourceAccountId:a.data.id,destinationAccountId:b.data.id,destinationWorkspaceId:workspaceId,sourceWorkspaceId:workspaceId,debitAmount:'2000',creditAmount:'2000',financialDate:'2026-10-12'});
  expect(transfer.status).toBe('success');
  const report=await readAnalytics(actor.headers,workspaceId,range);
  expect(report.totals).toEqual([{currency:'RUB',income:'30000.00',expense:'25000.00',difference:'5000.00'}]);
