@@ -138,3 +138,17 @@ export function recurrenceDates(
 export function followingDate(date: string) {
   return occurrenceDate(date, 1, 'day');
 }
+
+/** Inclusive calendar boundaries; financial DATE values never shift with timezone. */
+export function reportPeriod(period: 'current' | 'previous' | 'year', today: string) {
+  dateOnly(today);
+  const first = `${today.slice(0, 7)}-01`;
+  const previous = new Date(`${first}T00:00:00Z`);
+  previous.setUTCMonth(previous.getUTCMonth() - 1);
+  const from = period === 'year' ? `${today.slice(0,4)}-01-01` : period === 'previous' ? previous.toISOString().slice(0,10) : first;
+  const end = new Date(`${from}T00:00:00Z`);
+  if (period === 'year') end.setUTCFullYear(end.getUTCFullYear()+1);
+  else end.setUTCMonth(end.getUTCMonth()+1);
+  end.setUTCDate(end.getUTCDate()-1);
+  return {from,until:dateOnly(end.toISOString().slice(0,10))};
+}
