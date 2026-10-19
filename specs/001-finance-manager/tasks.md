@@ -566,7 +566,7 @@ Custom `checklists/product.md` остается reviewer-owned, 31/40; авто�
 ### Проверки контракта и инвариантов
 
 - [X] T141 [P] [US16] Написать Vitest unit/contract cases (current/previous/year/custom inclusive, categories25000, transfers excluded, backdated revisions отражены) в `tests/unit/analytics.test.ts`; использовать contracts/commands.md, ФТ-049–050; КУ-012–013 и точные Decimal строки.
-- [ ] T142 [P] [US16] Написать PostgreSQL integration и Playwright сценарии истории 16 в `tests/integration/analytics.test.ts`, `tests/e2e/analytics.spec.ts`; включить failure/permission cases и все сценарии приемки US16.
+- [X] T142 [P] [US16] Написать PostgreSQL integration и Playwright сценарии истории 16 в `tests/integration/analytics.test.ts`, `tests/e2e/analytics.spec.ts`; включить failure/permission cases и все сценарии приемки US16.
 
 ### Модель, application service и интерфейс
 

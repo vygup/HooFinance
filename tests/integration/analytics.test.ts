@@ -1,0 +1,48 @@
+import { randomUUID } from 'node:crypto';
+import { expect, test, vi } from 'vitest';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { eq } from 'drizzle-orm';
+import { testPool } from './setup';
+vi.mock('@/server/db/client', () => ({ getDb: () => drizzle(testPool), getPool: () => testPool }));
+import { integrationDb as db, registeredActor } from './auth-fixture';
+import { workspace } from '@/server/db/schema/workspaces';
+import { accountCommand } from '@/modules/ledger/application/accounts';
+import { createExpense } from '@/modules/ledger/application/expenses';
+import { createIncome } from '@/modules/ledger/application/income';
+import { createTransfer } from '@/modules/ledger/application/transfers';
+import { historyCommand } from '@/modules/ledger/application/history-corrections';
+import { readAnalytics } from '@/modules/reporting/application/analytics';
+const range = { period: 'custom', from: '2026-10-01', until: '2026-10-31' };
+test('актуальные ревизии, включительные границы, переводы, исправления и удаление', async () => {
+ const actor=await registeredActor();
+ const [scope]=await db.select().from(workspace).where(eq(workspace.personalOwnerId,actor.actorId));
+ const workspaceId=scope!.id;
+ const env=()=>({workspaceId,operationKey:randomUUID()});
+ const a=await accountCommand(actor.headers,env(),{command:'create',name:'Банк',type:'cash',currency:'RUB',openingBalance:'100000'});
+ const b=await accountCommand(actor.headers,env(),{command:'create',name:'Кошелёк',type:'cash',currency:'RUB',openingBalance:'0'});
+ if(a.status!=='success'||b.status!=='success') throw Error('FIXTURE');
+ expect((await readAnalytics(actor.headers,workspaceId,range)).totals).toEqual([]);
+ const entries=[];
+ for(const [amount,financialDate] of [['10000','2026-10-01'],['15000','2026-10-31']]) {
+ const r=await createExpense(actor.headers,env(),{accountId:a.data.id,category:{name:'Питание'},amount,financialDate});
+ if(r.status!=='success') throw Error('FIXTURE'); entries.push(r.data);
+ }
+ await createIncome(actor.headers,env(),{accountId:a.data.id,category:{name:'Зарплата'},amount:'30000',financialDate:'2026-10-10'});
+ const transfer=await createTransfer(actor.headers,env(),{sourceAccountId:a.data.id,destinationAccountId:b.data.id,destinationWorkspaceId:workspaceId,sourceAmount:'2000',destinationAmount:'2000',financialDate:'2026-10-12'});
+ expect(transfer.status).toBe('success');
+ const report=await readAnalytics(actor.headers,workspaceId,range);
+ expect(report.totals).toEqual([{currency:'RUB',income:'30000.00',expense:'25000.00',difference:'5000.00'}]);
+ expect(report.categories.find(c=>c.role==='expense')?.amount).toBe('25000.00');
+ expect(report.accounts).toHaveLength(2);
+ const changed=await historyCommand(actor.headers,{...env(),expectedVersion:'1'},{command:'updateEntry',actionId:entries[0]!.id,accountId:a.data.id,categoryId:entries[0]!.categoryId,amount:'12000',financialDate:'2026-09-30'});
+ expect(changed.status).toBe('success');
+ expect((await readAnalytics(actor.headers,workspaceId,range)).totals[0]?.expense).toBe('15000.00');
+ expect((await readAnalytics(actor.headers,workspaceId,{period:'custom',from:'2026-09-30',until:'2026-09-30'})).totals[0]?.expense).toBe('12000.00');
+ const removed=await historyCommand(actor.headers,{...env(),expectedVersion:'1'},{command:'delete',actionId:entries[1]!.id,explicitConfirmation:true});
+ expect(removed.status).toBe('success');
+ expect((await readAnalytics(actor.headers,workspaceId,range)).totals[0]?.expense).toBe('0.00');
+ const stranger=await registeredActor();
+ await expect(readAnalytics(stranger.headers,workspaceId,range)).rejects.toThrow('FORBIDDEN');
+ await expect(readAnalytics(new Headers(),workspaceId,range)).rejects.toThrow('UNAUTHORIZED');
+ await expect(readAnalytics(actor.headers,workspaceId,{...range,until:'2026-09-01'})).rejects.toThrow();
+});
