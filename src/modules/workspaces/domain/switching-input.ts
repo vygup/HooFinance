@@ -4,6 +4,7 @@ import { timezone } from './family';
 export const switchingInput = z.strictObject({
   workspaceId: commandEnvelope.shape.workspaceId,
   section: z.enum([
+    'dashboard',
     'accounts',
     'budget',
     'goals',

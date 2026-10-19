@@ -18,6 +18,9 @@ test('строгий запрос содержит только явное пр�
     { workspaceId, actorId: 'x' },
     { workspaceId, month: '2026-01' },
     { workspaceId, currency: 'RUB' },
+    { workspaceId, from: '2026-02-30', until: '2026-03-01' },
+    { workspaceId, from: '2026-03-02', until: '2026-03-01' },
+    { workspaceId, from: '2026-03-01' },
   ])
     expect(dashboardInput.safeParse(input).success).toBe(false);
 });

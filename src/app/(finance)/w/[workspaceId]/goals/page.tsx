@@ -77,6 +77,7 @@ export default async function Page({
         return (
           <section
             key={g.id}
+            id={`goal-${g.id}`}
             aria-label={`Цель ${g.name}`}
             className="grid gap-3 rounded-lg border p-5 break-words"
           >

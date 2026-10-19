@@ -66,9 +66,9 @@ export function WorkspaceSwitcher({
           );
           if (href === location.pathname) return;
           const section =
-            /^\/w\/[^/]+\/(accounts|budget|goals|operations|obligations|analytics)$/.exec(
+            /^\/w\/[^/]+\/(accounts|budget|goals|operations|obligations|analytics|dashboard)$/.exec(
               href,
-            )?.[1] ?? 'accounts';
+            )?.[1] ?? (/^\/w\/[^/]+$/.test(href) ? 'dashboard' : 'accounts');
           const parsed = switchingInput.safeParse({ ...values, section });
           if (!parsed.success) {
             setMessage('Выберите доступное пространство.');

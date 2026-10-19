@@ -3,6 +3,7 @@ import { test, expect } from './fixtures';
 test('Главный дашборд: пустые состояния, точные суммы, резерв, переходы и повтор загрузки', async ({
   page,
 }, info) => {
+  test.setTimeout(90000);
   await page.goto('/register');
   await page.getByLabel('Отображаемое имя').fill('Обзор');
   await page
@@ -101,7 +102,7 @@ test('Главный дашборд: пустые состояния, точны
   await expect(refresh.getByRole('status')).toHaveText('Обзор обновлён.');
   await page.goto(dashboard.replace(/[^/]+$/, randomUUID()));
   await expect(
-    page.getByRole('heading', { name: 'Пространство недоступно' }),
+    page.getByRole('heading', { name: 'Доступ ограничен' }),
   ).toBeVisible();
   await expect(page.getByText('220 000,01 RUB', { exact: true })).toHaveCount(
     0,

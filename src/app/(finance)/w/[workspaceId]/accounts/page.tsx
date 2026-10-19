@@ -81,6 +81,9 @@ export default async function Page({
   const { categories, expenses } = data;
   return (
     <>
+      <Link className="underline" href={`/w/${workspaceId}`}>
+        Финансовый обзор
+      </Link>
       <Link className="underline" href={`/w/${workspaceId}/obligations`}>
         Регулярные обязательства
       </Link>
@@ -197,6 +200,7 @@ export default async function Page({
       {data.accounts.map((a) => (
         <article
           key={a.id}
+          id={`account-${a.id}`}
           aria-label={a.name}
           className="grid min-w-0 gap-4 rounded-lg border p-5"
         >

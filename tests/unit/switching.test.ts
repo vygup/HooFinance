@@ -7,6 +7,11 @@ import {
 } from '@/modules/workspaces/domain/switching';
 const id = '00000000-0000-4000-8000-000000000001';
 test('switch removes previous object, period, currency and arbitrary URL', () => {
+  expect(switchingTarget(id, false, '/w/old?from=2020-01-01')).toBe(`/w/${id}`);
+  expect(switchingTarget(id, false, '/w/old/dashboard')).toBe(`/w/${id}`);
+  expect(
+    switchingInput.safeParse({ workspaceId: id, section: 'dashboard' }).success,
+  ).toBe(true);
   expect(
     switchingTarget(id, false, '/w/old/operations?text=private&accountId=old'),
   ).toBe(`/w/${id}/operations`);

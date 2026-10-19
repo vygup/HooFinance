@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { readDashboard } from '@/modules/reporting/application/dashboard';
-import { UpcomingPayments } from '@/modules/reporting/presentation/upcoming-payments';
+import { readWorkspaceDashboard } from '@/modules/reporting/application/dashboard';
+import { DashboardView } from '@/modules/reporting/presentation/dashboard-view';
 import { paymentDate } from '@/modules/obligations/application/recurring-payments-input';
 import { todayInTimezone, occurrenceDate } from '@/shared/calendar/calendar';
 import { readFamily } from '@/modules/workspaces/application/family';
@@ -34,7 +34,7 @@ export default async function Page({
       ? query.until!
       : occurrenceDate(from, 1, 'month');
   const payments = await authenticatedRead((h) =>
-    readDashboard(h, selected.id, from, until),
+    readWorkspaceDashboard(h, { workspaceId: selected.id, from, until }),
   );
   const date = new Intl.DateTimeFormat(profile.locale, {
     dateStyle: 'long',
@@ -53,6 +53,9 @@ export default async function Page({
       >
         <h2 className="text-xl font-medium">Ваше личное пространство</h2>
         <p className="mt-2">Доступно только вам.</p>
+        <Link className="underline" href={`/w/${scope.id}`}>
+          Обзор личного пространства
+        </Link>
         <Link className="underline" href={`/w/${scope.id}/accounts`}>
           Счета личного пространства
         </Link>
@@ -112,7 +115,12 @@ export default async function Page({
           Показать платежи
         </button>
       </form>
-      <UpcomingPayments data={payments} locale={profile.locale} />
+      <DashboardView
+        key={selected.id}
+        initial={payments}
+        locale={profile.locale}
+        interval={{ from, until }}
+      />
     </>
   );
 }

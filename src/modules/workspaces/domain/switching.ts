@@ -21,8 +21,13 @@ export function switchingTarget(
   pathname: string,
 ) {
   if (deleted) return `/families?history=${id}`;
+  if (
+    /^\/w\/[^/]+\/?$/.test(pathname.split('?')[0]!) ||
+    /^\/w\/[^/]+\/dashboard$/.test(pathname.split('?')[0]!)
+  )
+    return `/w/${id}`;
   const section =
-    /^\/w\/[^/]+\/(accounts|budget|goals|operations|obligations|analytics)$/.exec(
+    /^\/w\/[^/]+\/(accounts|budget|goals|operations|obligations|analytics|dashboard)$/.exec(
       pathname.split('?')[0]!,
     )?.[1] ?? 'accounts';
   return `/w/${id}/${section}`;
