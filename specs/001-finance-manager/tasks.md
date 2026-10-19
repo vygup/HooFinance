@@ -502,7 +502,7 @@ Custom `checklists/product.md` остается reviewer-owned, 31/40; авто�
 
 ### Модель, application service и интерфейс
 
-- [ ] T123 [US15] Определить/уточнить Zod DTO и правила истории в `src/modules/reporting/application/dashboard-input.ts`, `src/modules/reporting/domain/dashboard.ts`, переиспользуя shared schemas из фазы2; поля и инварианты по ФТ-047–048,062; КУ-012, без параллельных money/account/goal tables.
+- [X] T123 [US15] Определить/уточнить Zod DTO и правила истории в `src/modules/reporting/application/dashboard-input.ts`, `src/modules/reporting/domain/dashboard.ts`, переиспользуя shared schemas из фазы2; поля и инварианты по ФТ-047–048,062; КУ-012, без параллельных money/account/goal tables.
 - [ ] T124 [US15] Реализовать Собрать snapshot dashboard accounts/monthly/budget/goals/latest actions; P2 upcoming подключается послеUS14 в `src/modules/reporting/application/dashboard.ts` и `src/modules/reporting/infrastructure/dashboard-repository.ts`; authorization, audit/version и shared tx executor обязательны; domain расчеты отдельно от repository.
 - [ ] T125 [US15] Подключить server transport в `src/modules/reporting/presentation/dashboard-actions.ts` и UI в `src/app/(finance)/w/[workspaceId]/page.tsx`; React Hook Form/Zod, русские подписи, loading/error, accessible focus, no money math в React, explicit workspace и no-store.
 - [ ] T126 [US15] Запустить и довести до успеха созданные тесты `tests/unit/dashboard.test.ts`, `tests/integration/dashboard.test.ts`, `tests/e2e/dashboard.spec.ts`, typecheck и затронутые регрессии; результаты/команды записать в `specs/001-finance-manager/validation/us15.md`, без секретов и финансовых payload.
